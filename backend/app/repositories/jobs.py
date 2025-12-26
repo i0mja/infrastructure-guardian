@@ -68,7 +68,7 @@ class JobRepository:
                 current_step, total_steps, external_task_ids
             )
             VALUES (
-                'inventory_sync',
+                'vcenter_inventory_sync',
                 %s,
                 'Triggered via API',
                 'pending',
