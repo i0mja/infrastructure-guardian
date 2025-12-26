@@ -10,65 +10,31 @@ import {
   Play,
   Plus
 } from 'lucide-react';
-
-const reportTypes = [
-  { id: 'inventory_summary', name: 'Weekly Inventory Summary', schedule: 'Every Monday 08:00 UTC' },
-  { id: 'inventory_changes', name: 'Inventory Changes (Delta)', schedule: 'Daily 06:00 UTC' },
-  { id: 'firmware_compliance', name: 'Firmware Compliance', schedule: 'Weekly Sunday 00:00 UTC' },
-  { id: 'update_execution', name: 'Update Execution History', schedule: 'On demand' },
-  { id: 'unattended_exceptions', name: 'Unattended Maintenance Exceptions', schedule: 'Daily 07:00 UTC' },
-  { id: 'ip_utilization', name: 'IP Utilization', schedule: 'Weekly Friday 18:00 UTC' },
-  { id: 'ipam_findings', name: 'IPAM Findings', schedule: 'Daily 06:00 UTC' },
-  { id: 'operations_summary', name: 'Weekly Operations Summary', schedule: 'Every Monday 09:00 UTC' },
-];
-
-const recentReports = [
-  {
-    id: 'report-001',
-    type: 'inventory_summary',
-    name: 'Weekly Inventory Summary',
-    generatedAt: '2024-01-15 08:00:00',
-    status: 'completed' as const,
-    format: 'HTML',
-    size: '2.4 MB',
-  },
-  {
-    id: 'report-002',
-    type: 'firmware_compliance',
-    name: 'Firmware Compliance',
-    generatedAt: '2024-01-14 00:00:00',
-    status: 'completed' as const,
-    format: 'CSV',
-    size: '156 KB',
-  },
-  {
-    id: 'report-003',
-    type: 'ipam_findings',
-    name: 'IPAM Findings',
-    generatedAt: '2024-01-15 06:00:00',
-    status: 'completed' as const,
-    format: 'JSON',
-    size: '48 KB',
-  },
-  {
-    id: 'report-004',
-    type: 'inventory_changes',
-    name: 'Inventory Changes (Delta)',
-    generatedAt: '2024-01-15 06:00:00',
-    status: 'generating' as const,
-    format: 'HTML',
-    size: null,
-  },
-];
+import { useDashboardOverview, useReportDefinitions, useReportExecutions } from '@/hooks/api';
 
 export default function ReportsPage() {
+  const { data: overview } = useDashboardOverview();
+  const { data: definitions, isLoading: definitionsLoading, refetch: refetchDefinitions } = useReportDefinitions();
+  const { data: executions, isLoading: executionsLoading, refetch: refetchExecutions } = useReportExecutions();
+
+  const formatSize = (size?: number | null) => {
+    if (!size) return '—';
+    const kb = size / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+  };
+
+  const handleRefresh = () => {
+    void Promise.all([refetchDefinitions(), refetchExecutions()]);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <Header 
         title="Reports" 
         subtitle="Generated from stored data only — no live syncs"
-        lastUpdated="1 hour ago"
-        onRefresh={() => console.log('Refresh')}
+        lastUpdated={overview?.lastSync ? new Date(overview.lastSync).toLocaleString() : undefined}
+        onRefresh={handleRefresh}
       />
       
       <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -81,27 +47,45 @@ export default function ReportsPage() {
               New Schedule
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
-            {reportTypes.map((report) => (
-              <div 
-                key={report.id} 
-                className="bg-card p-4 hover:bg-accent/30 transition-colors cursor-pointer"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-domain-reports/10 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-4 h-4 text-domain-reports" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground mb-1">{report.name}</p>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span>{report.schedule}</span>
+          {definitionsLoading ? (
+            <div className="p-4 text-sm text-muted-foreground">Loading report definitions…</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
+              {definitions?.map((report) => (
+                <div 
+                  key={report.id} 
+                  className="bg-card p-4 hover:bg-accent/30 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-domain-reports/10 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-domain-reports" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground mb-1">{report.name}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Calendar className="w-3 h-3" />
+                        <span>{report.schedule || 'On demand'}</span>
+                      </div>
+                      {report.formats && (
+                        <div className="flex gap-1 mt-2 flex-wrap">
+                          {report.formats.map((format) => (
+                            <span key={format} className="px-2 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground rounded">
+                              {format.toUpperCase()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+              {!definitions?.length && (
+                <div className="col-span-full p-4 text-sm text-muted-foreground">
+                  No report definitions available.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Recent Reports */}
@@ -113,60 +97,71 @@ export default function ReportsPage() {
               Generate Now
             </Button>
           </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Report</th>
-                <th>Generated</th>
-                <th>Format</th>
-                <th>Size</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentReports.map((report) => (
-                <tr key={report.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-4 h-4 text-domain-reports" />
-                      <span className="text-sm font-medium text-foreground">{report.name}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      <span>{report.generatedAt}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded">
-                      {report.format}
-                    </span>
-                  </td>
-                  <td className="text-sm text-muted-foreground">
-                    {report.size || '—'}
-                  </td>
-                  <td>
-                    <StatusBadge 
-                      status={report.status === 'completed' ? 'success' : 'pending'}
-                      label={report.status}
-                      size="sm"
-                      pulse={report.status === 'generating'}
-                    />
-                  </td>
-                  <td>
-                    {report.status === 'completed' && (
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        <Download className="w-3 h-3" />
-                        Download
-                      </Button>
-                    )}
-                  </td>
+          {executionsLoading ? (
+            <div className="p-4 text-sm text-muted-foreground">Loading reports…</div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Report</th>
+                  <th>Generated</th>
+                  <th>Format</th>
+                  <th>Size</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {executions?.map((report) => (
+                  <tr key={report.id}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-4 h-4 text-domain-reports" />
+                        <span className="text-sm font-medium text-foreground">{report.name || report.id}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>{report.startedAt ? new Date(report.startedAt).toLocaleString() : '—'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded">
+                        {(report.format || 'N/A').toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="text-sm text-muted-foreground">
+                      {formatSize(report.sizeBytes)}
+                    </td>
+                    <td>
+                      <StatusBadge 
+                        status={report.status === 'completed' ? 'success' : report.status === 'failed' ? 'error' : 'pending'}
+                        label={report.status}
+                        size="sm"
+                        pulse={report.status === 'generating'}
+                      />
+                    </td>
+                    <td>
+                      {report.status === 'completed' && report.downloadUrl && (
+                        <Button variant="ghost" size="sm" className="gap-1" onClick={() => window.open(report.downloadUrl || '#', '_blank')}>
+                          <Download className="w-3 h-3" />
+                          Download
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {!executions?.length && (
+                  <tr>
+                    <td colSpan={6} className="text-center text-sm text-muted-foreground py-6">
+                      No report executions found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Info Box */}

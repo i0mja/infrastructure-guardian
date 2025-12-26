@@ -1,23 +1,13 @@
 import { cn } from '@/lib/utils';
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import type { HealthItem } from '@/lib/api';
 
-interface HealthItem {
-  name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  lastCheck: string;
-  message?: string;
+interface HealthGridProps {
+  items?: HealthItem[];
+  isLoading?: boolean;
 }
 
-const healthItems: HealthItem[] = [
-  { name: 'vCenter API', status: 'healthy', lastCheck: '< 1 min' },
-  { name: 'iDRAC Endpoints', status: 'healthy', lastCheck: '< 1 min' },
-  { name: 'Database', status: 'healthy', lastCheck: '< 1 min' },
-  { name: 'Worker Pool', status: 'healthy', lastCheck: '< 1 min' },
-  { name: 'Job Queue', status: 'degraded', lastCheck: '2 min', message: '3 jobs queued' },
-  { name: 'Report Generator', status: 'healthy', lastCheck: '< 1 min' },
-];
-
-export function HealthGrid() {
+export function HealthGrid({ items = [], isLoading = false }: HealthGridProps) {
   const getStatusIcon = (status: HealthItem['status']) => {
     switch (status) {
       case 'healthy':
@@ -42,25 +32,34 @@ export function HealthGrid() {
       <div className="p-4 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">System Health</h3>
       </div>
-      <div className="p-4 grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {healthItems.map((item) => (
-          <div 
-            key={item.name}
-            className={cn(
-              "p-3 rounded-lg border transition-colors cursor-default",
-              getStatusBg(item.status)
-            )}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              {getStatusIcon(item.status)}
-              <span className="text-sm font-medium text-foreground">{item.name}</span>
+      {isLoading ? (
+        <div className="p-4 text-sm text-muted-foreground">Loading health checks…</div>
+      ) : (
+        <div className="p-4 grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map((item) => (
+            <div 
+              key={item.component}
+              className={cn(
+                "p-3 rounded-lg border transition-colors cursor-default",
+                getStatusBg(item.status)
+              )}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                {getStatusIcon(item.status)}
+                <span className="text-sm font-medium text-foreground">{item.component}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {item.message || (item.lastCheck ? `Checked ${item.lastCheck}` : 'No recent check recorded')}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {item.message || `Checked ${item.lastCheck}`}
-            </p>
-          </div>
-        ))}
-      </div>
+          ))}
+          {items.length === 0 && (
+            <div className="col-span-full text-sm text-muted-foreground">
+              No health data available.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
