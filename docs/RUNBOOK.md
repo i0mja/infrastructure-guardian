@@ -199,6 +199,17 @@ pg_dump -Fc eio_production > eio_backup_$(date +%Y%m%d).dump
 pg_restore --list eio_backup_$(date +%Y%m%d).dump
 ```
 
+### Applying Migrations Locally
+
+For a local developer database (PostgreSQL or Supabase Postgres), apply migrations in order using `psql`. Update `DATABASE_URL` with your connection string.
+
+```bash
+psql "$DATABASE_URL" -f db/migrations/001_create_core_tables.sql
+psql "$DATABASE_URL" -f db/seed/001_seed.sql
+```
+
+If you are using Supabase, set `DATABASE_URL` to the Supabase Postgres connection URL (not the HTTP API key) before running the commands.
+
 ### Read Replica Lag
 ```sql
 SELECT client_addr, state, sent_lsn, write_lsn, flush_lsn, replay_lsn,
